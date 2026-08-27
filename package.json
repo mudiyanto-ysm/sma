@@ -1,0 +1,16 @@
+{
+  "name": "siakad-persuratan-sma",
+  "version": "1.0.0",
+  "description": "Sistem Otomatisasi Dokumen Surat SMA Swasta Jakarta Timur",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "mysql2": "^3.9.2"
+  }
+}
