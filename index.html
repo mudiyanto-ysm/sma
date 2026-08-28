@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistem Manajemen Dokumen Sekolah</title>
-    <!-- Framework Tailwind CSS via CDN untuk styling antarmuka modern -->
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-100 font-sans text-gray-800">
@@ -16,11 +15,11 @@
                 🏫 SIAKAD SMA
             </div>
             <nav class="flex-1 space-y-2">
-                <a href="#" class="block px-4 py-2.5 rounded-lg text-slate-400 hover:bg-slate-700 hover:text-white transition">📁 Dashboard</a>
-                <a href="#" class="block px-4 py-2.5 rounded-lg bg-blue-600 text-white font-medium shadow-md">📑 Generator Surat</a>
-                <a href="#" class="block px-4 py-2.5 rounded-lg text-slate-400 hover:bg-slate-700 hover:text-white transition">👥 Data Siswa</a>
-                <a href="#" class="block px-4 py-2.5 rounded-lg text-slate-400 hover:bg-slate-700 hover:text-white transition">📝 Data Guru</a>
-                <a href="#" class="block px-4 py-2.5 rounded-lg text-slate-400 hover:bg-slate-700 hover:text-white transition">⚙️ Pengaturan</a>
+                <a href="dashboard.html" class="block px-4 py-2.5 rounded-lg text-slate-400 hover:bg-slate-700 hover:text-white transition">📁 Dashboard</a>
+                <a href="index.html" class="block px-4 py-2.5 rounded-lg bg-blue-600 text-white font-medium shadow-md">📑 Generator Surat</a>
+                <a href="data-siswa.html" class="block px-4 py-2.5 rounded-lg text-slate-400 hover:bg-slate-700 hover:text-white transition">👥 Data Siswa</a>
+                <span class="flex items-center justify-between px-4 py-2.5 rounded-lg text-slate-600 cursor-not-allowed select-none" title="Segera hadir">📝 Data Guru <span class="text-[10px] bg-slate-700 text-slate-400 px-1.5 py-0.5 rounded">segera</span></span>
+                <a href="pengaturan.html" class="block px-4 py-2.5 rounded-lg text-slate-400 hover:bg-slate-700 hover:text-white transition">⚙️ Pengaturan</a>
             </nav>
             <div class="text-xs text-slate-500 border-t border-slate-700 pt-4">
                 Hak Akses: <span class="text-slate-300 font-medium">Staf Tata Usaha</span>
@@ -37,7 +36,7 @@
             <main class="p-8 max-w-4xl w-full mx-auto space-y-6">
                 <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 space-y-6">
 
-                    <!-- MENU 1: Pilih Jenis Template Surat (dimuat otomatis dari database, dikelompokkan per kategori) -->
+                    <!-- MENU 1: Pilih Jenis Template Surat -->
                     <div>
                         <label class="block text-sm font-semibold text-gray-700 mb-2">Pilih Jenis Surat</label>
                         <select id="jenisSurat" class="w-full border border-gray-300 rounded-lg p-2.5 bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:outline-none">
@@ -51,7 +50,7 @@
                         <h3 class="text-sm font-bold text-slate-700 tracking-wide uppercase">Cari Data Siswa (Integrasi Database)</h3>
                         <div class="relative">
                             <label class="block text-xs font-medium text-gray-600 mb-1">Ketik Nama atau NISN Siswa</label>
-                            <input type="text" id="cariSiswa" autocomplete="off" placeholder="Ketik minimal 3 huruf... (Contoh pencarian seeder: Aditya atau Citra)" class="w-full border border-gray-300 bg-white rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                            <input type="text" id="cariSiswa" autocomplete="off" placeholder="Ketik minimal 3 huruf..." class="w-full border border-gray-300 bg-white rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none">
                             <div id="dropdownHasil" class="hidden absolute z-10 w-full bg-white border border-gray-200 rounded-lg shadow-lg mt-1 max-h-56 overflow-y-auto"></div>
                         </div>
                         <div id="notifSiswa" class="bg-amber-50 border border-amber-200 text-amber-800 rounded-lg p-3 text-sm flex items-center justify-between">
@@ -65,37 +64,58 @@
                         <input type="text" id="kepadaYth" class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none">
                     </div>
 
-                    <!-- MENU 3: Field Variabel Dinamis, dibangun otomatis mengikuti jenis surat yang dipilih -->
+                    <!-- MENU 3: Field Variabel Dinamis, dibangun otomatis mengikuti jenis surat yang dipilih (input tanggal otomatis pakai kalender) -->
                     <div id="blokVariabel" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
 
-                    <!-- MENU 4: Pejabat Penandatangan (selalu tampil, berlaku untuk semua jenis surat) -->
+                    <!-- MENU 4: Pejabat Penandatangan (diambil dari database, dikelola lewat menu Pengaturan) -->
                     <div>
                         <label class="block text-sm font-semibold text-gray-700 mb-2">Pejabat Penandatangan Dokumen</label>
                         <select id="penandatangan" class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none">
-                            <option value="Drs. Bambang Hermawan">Drs. Bambang Hermawan (Kepala Sekolah)</option>
-                            <option value="Hj. Siti Aminah, M.Pd">Hj. Siti Aminah, M.Pd (Wakasek Kurikulum)</option>
+                            <option value="">Memuat daftar pejabat...</option>
                         </select>
                     </div>
 
-                    <!-- MENU 5: Live Preview Format Penomoran -->
+                    <!-- MENU 5: Opsi Tambahan (opsional) — Mengetahui, Tembusan, Lampiran -->
+                    <details class="border border-gray-200 rounded-lg">
+                        <summary class="cursor-pointer select-none px-4 py-3 text-sm font-semibold text-gray-700 bg-gray-50 rounded-lg">+ Opsi Tambahan (Mengetahui, Tembusan, Lampiran) — opsional</summary>
+                        <div class="p-4 space-y-4 border-t border-gray-200">
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">Yang Mengetahui (opsional)</label>
+                                <select id="mengetahui" class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                                    <option value="">— Tidak perlu —</option>
+                                </select>
+                                <p class="text-xs text-gray-500 mt-1">Kalau diisi, surat akan menampilkan 2 kolom tanda tangan (Mengetahui &amp; Penandatangan).</p>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">Tembusan (opsional)</label>
+                                <textarea id="tembusan" rows="3" placeholder="Satu nama per baris, contoh:&#10;Ketua Yayasan Ar-Ridho&#10;Arsip TU" class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none"></textarea>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">Lampiran (opsional)</label>
+                                <input type="text" id="lampiran" placeholder="Contoh: 1 (satu) lembar" class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                            </div>
+                        </div>
+                    </details>
+
+                    <!-- MENU 6: Live Preview Format Penomoran -->
                     <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
                         <span class="block text-xs uppercase tracking-wider text-blue-600 font-bold mb-1">Pratinjau Pola Format Nomor Surat Keluar</span>
                         <span id="previewNomor" class="text-lg font-mono font-bold text-slate-800">[No.Urut]/.../SMA-SW/.../....</span>
                     </div>
 
-                    <!-- MENU 6: Tombol Eksekusi Aksi -->
+                    <!-- MENU 7: Tombol Eksekusi Aksi -->
                     <div class="flex flex-col sm:flex-row gap-3 pt-2">
                         <button type="button" onclick="prosesCetak()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-lg shadow transition flex justify-center items-center gap-2 cursor-pointer text-center">
                             🖨️ Proses Dokumen & Buka Lembar Cetak (PDF)
                         </button>
                     </div>
+                    <p class="text-xs text-gray-500 text-center">💡 Setelah surat terbuka di tab baru, Anda masih bisa mengklik dan mengedit kalimatnya langsung sebelum mencetak.</p>
 
                 </div>
             </main>
         </div>
     </div>
 
-    <!-- LOGIKA JAVASCRIPT KONEKTOR JALUR INTERAKTIF -->
     <script>
         const selectJenisSurat = document.getElementById('jenisSurat');
         const blokCariSiswa = document.getElementById('blokCariSiswa');
@@ -107,16 +127,22 @@
         const textNotif = document.getElementById('textNotif');
         const dropdownHasil = document.getElementById('dropdownHasil');
         const previewNomor = document.getElementById('previewNomor');
+        const selectPenandatangan = document.getElementById('penandatangan');
+        const selectMengetahui = document.getElementById('mengetahui');
 
         let daftarTemplate = [];
         let idSiswaTerpilih = null;
 
-        // Ubah "nama_variabel" menjadi label yang enak dibaca, contoh: "sekolah_tujuan" -> "Sekolah Tujuan"
         function labelkan(namaVar) {
             return namaVar.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
         }
 
-        // Ambil daftar template dari server, lalu bangun dropdown terkelompok per kategori surat
+        // Field yang namanya mengandung 'tanggal' atau 'tmt' otomatis dijadikan input kalender
+        function apakahFieldTanggal(namaVar) {
+            return /tanggal|tmt/i.test(namaVar);
+        }
+
+        // Muat daftar jenis surat
         fetch('/api/template/list')
             .then(r => r.json())
             .then(data => {
@@ -139,38 +165,47 @@
                 selectJenisSurat.innerHTML = '<option value="">Gagal memuat daftar surat dari server</option>';
             });
 
+        // Muat daftar pejabat untuk dropdown Penandatangan & Yang Mengetahui
+        fetch('/api/pejabat/list?aktif=1')
+            .then(r => r.json())
+            .then(data => {
+                const opsi = data.map(p => `<option value="${p.id_pejabat}">${p.nama} (${p.jabatan})</option>`).join('');
+                selectPenandatangan.innerHTML = opsi || '<option value="">Belum ada pejabat, tambahkan di menu Pengaturan</option>';
+                selectMengetahui.innerHTML = '<option value="">— Tidak perlu —</option>' + opsi;
+            })
+            .catch(() => {
+                selectPenandatangan.innerHTML = '<option value="">Gagal memuat daftar pejabat</option>';
+            });
+
         selectJenisSurat.addEventListener('change', function() {
             const template = daftarTemplate.find(t => String(t.id_template) === this.value);
             if (template) renderFormUntukTemplate(template);
         });
 
-        // Membangun ulang seluruh bagian form (siswa/kepada-yth/variabel/preview nomor) sesuai template terpilih
         function renderFormUntukTemplate(template) {
             if (!template) return;
             idSiswaTerpilih = null;
             inputCari.value = '';
             tutupDropdown();
 
-            // Blok cari siswa hanya untuk template berkategori 'siswa'
             blokCariSiswa.classList.toggle('hidden', template.kategori !== 'siswa');
             if (template.kategori === 'siswa') {
                 notifBox.className = "bg-amber-50 border border-amber-200 text-amber-800 rounded-lg p-3 text-sm flex items-center justify-between";
                 textNotif.innerHTML = "Silakan ketik nama siswa di atas untuk memuat data identitas resmi.";
             }
 
-            // Blok "Kepada Yth." hanya untuk format surat 'dinas'
             blokKepadaYth.classList.toggle('hidden', template.format_surat !== 'dinas');
             inputKepadaYth.value = template.kepada_yth_default || '';
 
-            // Bangun field variabel dinamis sesuai isi template
-            blokVariabel.innerHTML = template.variabel.map(v => `
+            blokVariabel.innerHTML = template.variabel.map(v => {
+                const isTanggal = apakahFieldTanggal(v);
+                return `
                 <div>
                     <label class="block text-sm font-semibold text-gray-700 mb-2">${labelkan(v)}</label>
-                    <input type="text" data-var="${v}" class="input-variabel w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="Isi ${labelkan(v).toLowerCase()}...">
-                </div>
-            `).join('');
+                    <input type="${isTanggal ? 'date' : 'text'}" data-var="${v}" class="input-variabel w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="${isTanggal ? '' : 'Isi ' + labelkan(v).toLowerCase() + '...'}">
+                </div>`;
+            }).join('');
 
-            // Perbarui pratinjau nomor surat sesuai kode perihal template terpilih
             const romawi = ['I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII'];
             const now = new Date();
             previewNomor.textContent = `[No.Urut]/${template.kode_perihal}/SMA-SW/${romawi[now.getMonth()]}/${now.getFullYear()}`;
@@ -185,12 +220,10 @@
             idSiswaTerpilih = siswa.id_siswa;
             inputCari.value = `${siswa.nama_siswa} (${siswa.nisn})`;
             tutupDropdown();
-
             notifBox.className = "bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-lg p-3 text-sm flex items-center justify-between";
             textNotif.innerHTML = `Siswa Ditemukan: <span class="font-bold">${siswa.nisn} - ${siswa.nama_siswa}</span> (Kelas ${siswa.kelas})`;
         }
 
-        // Handler Event: Mendeteksi pengetikan staf TU untuk pencarian langsung
         inputCari.addEventListener('input', function() {
             idSiswaTerpilih = null;
             const kataKunci = this.value;
@@ -215,7 +248,6 @@
                             </button>
                         `).join('');
                         dropdownHasil.classList.remove('hidden');
-
                         notifBox.className = "bg-blue-50 border border-blue-200 text-blue-800 rounded-lg p-3 text-sm flex items-center justify-between";
                         textNotif.innerHTML = `Ditemukan ${data.length} siswa. Silakan pilih dari daftar di bawah kolom pencarian.`;
                     } else {
@@ -237,7 +269,6 @@
             }
         });
 
-        // Handler Event: Mengirim seluruh parameter (termasuk field variabel dinamis) ke backend dan membuka halaman siap cetak
         function prosesCetak() {
             const template = daftarTemplate.find(t => String(t.id_template) === selectJenisSurat.value);
             if (!template) {
@@ -248,8 +279,10 @@
                 alert('Peringatan: Silakan cari dan pilih data siswa terlebih dahulu!');
                 return;
             }
-
-            const ttd = document.getElementById('penandatangan').value;
+            if (!selectPenandatangan.value) {
+                alert('Peringatan: Silakan pilih pejabat penandatangan!');
+                return;
+            }
 
             const formBayangan = document.createElement('form');
             formBayangan.method = 'POST';
@@ -265,11 +298,13 @@
             }
 
             tambahInput('id_template', template.id_template);
-            tambahInput('penandatangan', ttd);
+            tambahInput('penandatangan_id', selectPenandatangan.value);
+            if (selectMengetahui.value) tambahInput('mengetahui_id', selectMengetahui.value);
+            tambahInput('tembusan', document.getElementById('tembusan').value);
+            tambahInput('lampiran', document.getElementById('lampiran').value);
             if (template.kategori === 'siswa') tambahInput('id_siswa', idSiswaTerpilih);
             if (template.format_surat === 'dinas') tambahInput('kepada_yth', inputKepadaYth.value);
 
-            // Kirim seluruh field variabel dinamis sebagai variabel[nama_var], otomatis dibaca express sebagai object nested
             document.querySelectorAll('.input-variabel').forEach(el => {
                 tambahInput(`variabel[${el.dataset.var}]`, el.value);
             });
