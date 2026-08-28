@@ -33,8 +33,9 @@ function q(sql, params = []) {
 }
 
 // Middleware standard untuk membaca input form (termasuk nested field seperti variabel[key]) dan file statis
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Batas ukuran body dinaikkan ke 10mb (default Express cuma 100kb) — perlu karena logo sekolah dikirim sebagai data base64 lewat JSON
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(express.static(path.join(__dirname)));
 
 const NAMA_BULAN = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
