@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pengaturan - Sistem Manajemen Dokumen Sekolah</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body class="bg-gray-100 font-sans text-gray-800">
 
@@ -16,8 +17,9 @@
             <nav class="flex-1 space-y-2">
                 <a href="dashboard.html" class="block px-4 py-2.5 rounded-lg text-slate-400 hover:bg-slate-700 hover:text-white transition">📁 Dashboard</a>
                 <a href="index.html" class="block px-4 py-2.5 rounded-lg text-slate-400 hover:bg-slate-700 hover:text-white transition">📑 Generator Surat</a>
+                <a href="surat-massal.html" class="block px-4 py-2.5 rounded-lg text-slate-400 hover:bg-slate-700 hover:text-white transition">🖨️ Surat Massal</a>
                 <a href="data-siswa.html" class="block px-4 py-2.5 rounded-lg text-slate-400 hover:bg-slate-700 hover:text-white transition">👥 Data Siswa</a>
-                <span class="flex items-center justify-between px-4 py-2.5 rounded-lg text-slate-600 cursor-not-allowed select-none" title="Segera hadir">📝 Data Guru <span class="text-[10px] bg-slate-700 text-slate-400 px-1.5 py-0.5 rounded">segera</span></span>
+                <a href="data-guru.html" class="block px-4 py-2.5 rounded-lg text-slate-400 hover:bg-slate-700 hover:text-white transition">📝 Data Guru</a>
                 <a href="pengaturan.html" class="block px-4 py-2.5 rounded-lg bg-blue-600 text-white font-medium shadow-md">⚙️ Pengaturan</a>
             </nav>
             <div class="text-xs text-slate-500 border-t border-slate-700 pt-4">
@@ -42,7 +44,13 @@
                 <div id="tabTemplate">
                     <div class="flex justify-between items-center mb-4">
                         <p class="text-sm text-gray-500">Kelola isi & format ke-16 (atau lebih) jenis surat yang tersedia di Generator Surat.</p>
-                        <button onclick="bukaModalTemplate()" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg shadow whitespace-nowrap">+ Tambah Template</button>
+                        <div class="flex gap-2">
+                            <button onclick="unduhTemplateExcel()" class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-sm font-medium px-4 py-2 rounded-lg whitespace-nowrap">⬇️ Unduh Template Excel</button>
+                            <button onclick="document.getElementById('inputFileImporTemplate').click()" class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-sm font-medium px-4 py-2 rounded-lg whitespace-nowrap">📤 Impor Excel/CSV</button>
+                            <input type="file" id="inputFileImporTemplate" accept=".xlsx,.xls,.csv" class="hidden" onchange="prosesFileImporTemplate(this.files[0])">
+                            <button onclick="eksporTemplate()" class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-sm font-medium px-4 py-2 rounded-lg whitespace-nowrap">📥 Ekspor Excel</button>
+                            <button onclick="bukaModalTemplate()" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg shadow whitespace-nowrap">+ Tambah Template</button>
+                        </div>
                     </div>
                     <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                         <table class="w-full text-sm">
@@ -145,6 +153,34 @@
         </div>
     </div>
 
+    <!-- Modal Preview Impor Template -->
+    <div id="modalImporTemplate" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-xl shadow-lg w-full max-w-4xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+            <h2 class="text-lg font-bold text-gray-800">Pratinjau Impor Template Surat</h2>
+            <p id="ringkasanImporTemplate" class="text-sm text-gray-600"></p>
+            <div class="border border-gray-200 rounded-lg overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead class="bg-gray-50 text-gray-500 uppercase text-xs">
+                        <tr>
+                            <th class="text-left px-4 py-2">Kode</th>
+                            <th class="text-left px-4 py-2">Nama Surat</th>
+                            <th class="text-left px-4 py-2">Kelompok</th>
+                            <th class="text-left px-4 py-2">Kategori</th>
+                            <th class="text-left px-4 py-2">Format</th>
+                            <th class="text-left px-4 py-2">Isi Template</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabelPreviewImporTemplate" class="divide-y divide-gray-100"></tbody>
+                </table>
+            </div>
+            <p class="text-xs text-gray-500">💡 Baris dengan Nama Surat yang sudah ada di database akan <strong>diperbarui</strong> isinya, bukan dibuat duplikat. Kategori harus "siswa" atau "umum"; Format harus "keterangan", "dinas", atau "tugas" (kalau salah ketik, otomatis dianggap default "umum"/"dinas").</p>
+            <div class="flex justify-end gap-2 pt-2">
+                <button onclick="document.getElementById('modalImporTemplate').classList.add('hidden')" class="px-4 py-2 text-sm rounded-lg border border-gray-300 hover:bg-gray-50">Batal</button>
+                <button onclick="konfirmasiImporTemplate()" class="px-4 py-2 text-sm rounded-lg bg-blue-600 text-white hover:bg-blue-700">Konfirmasi & Simpan Semua</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal Pejabat -->
     <div id="modalPejabat" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
         <div class="bg-white rounded-xl shadow-lg w-full max-w-md p-6 space-y-4">
@@ -176,6 +212,107 @@
     <script>
         let semuaTemplate = [];
         let semuaPejabat = [];
+        let dataHasilParsingTemplate = [];
+
+        function cariNilai(row, ...kemungkinanNama) {
+            for (const k of Object.keys(row)) {
+                const kNorm = k.toLowerCase().replace(/[\s_]/g, '');
+                for (const nama of kemungkinanNama) {
+                    if (kNorm === nama.toLowerCase().replace(/[\s_]/g, '')) return row[k];
+                }
+            }
+            return undefined;
+        }
+
+        function unduhTemplateExcel() {
+            const contoh = [{
+                kode_perihal: '499', nama_surat: 'Contoh Surat Baru', kelompok: 'Kesiswaan',
+                kategori: 'siswa', format_surat: 'keterangan', kepada_yth_default: '',
+                isi_template: 'Bahwa nama {nama_siswa} dengan NISN {nisn} kelas {kelas} ... {tujuan_surat}.'
+            }];
+            const ws = XLSX.utils.json_to_sheet(contoh);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Template');
+            XLSX.writeFile(wb, 'template-import-surat.xlsx');
+        }
+
+        function eksporTemplate() {
+            const dataEkspor = semuaTemplate.map(t => ({
+                kode_perihal: t.kode_perihal, nama_surat: t.nama_surat, kelompok: t.kelompok,
+                kategori: t.kategori, format_surat: t.format_surat,
+                kepada_yth_default: t.kepada_yth_default || '', isi_template: t.isi_template
+            }));
+            const ws = XLSX.utils.json_to_sheet(dataEkspor);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Template Surat');
+            const tanggal = new Date().toISOString().slice(0, 10);
+            XLSX.writeFile(wb, `template-surat-${tanggal}.xlsx`);
+        }
+
+        function prosesFileImporTemplate(file) {
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const wb = XLSX.read(e.target.result, { type: 'array' });
+                    const sheet = wb.Sheets[wb.SheetNames[0]];
+                    const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+
+                    dataHasilParsingTemplate = rows.map(row => ({
+                        kode_perihal: String(cariNilai(row, 'kode_perihal', 'kode') ?? '').trim(),
+                        nama_surat: String(cariNilai(row, 'nama_surat', 'nama') ?? '').trim(),
+                        kelompok: String(cariNilai(row, 'kelompok') ?? '').trim(),
+                        kategori: String(cariNilai(row, 'kategori') ?? 'umum').trim().toLowerCase(),
+                        format_surat: String(cariNilai(row, 'format_surat', 'format') ?? 'dinas').trim().toLowerCase(),
+                        kepada_yth_default: String(cariNilai(row, 'kepada_yth_default', 'kepadayth') ?? '').trim(),
+                        isi_template: String(cariNilai(row, 'isi_template', 'isi') ?? '').trim()
+                    }));
+
+                    tampilkanPreviewImporTemplate();
+                } catch (err) {
+                    alert('Gagal membaca file: ' + err.message);
+                }
+                document.getElementById('inputFileImporTemplate').value = '';
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function tampilkanPreviewImporTemplate() {
+            const valid = dataHasilParsingTemplate.filter(r => r.kode_perihal && r.nama_surat && r.kelompok && r.isi_template);
+            const invalid = dataHasilParsingTemplate.length - valid.length;
+            document.getElementById('ringkasanImporTemplate').textContent =
+                `Ditemukan ${dataHasilParsingTemplate.length} baris data. ${valid.length} baris siap diimpor` +
+                (invalid > 0 ? `, ${invalid} baris dilewati karena ada kolom wajib yang kosong.` : '.');
+
+            document.getElementById('tabelPreviewImporTemplate').innerHTML = dataHasilParsingTemplate.slice(0, 50).map(r => `
+                <tr class="${(!r.kode_perihal || !r.nama_surat || !r.kelompok || !r.isi_template) ? 'bg-red-50 text-red-400' : ''}">
+                    <td class="px-4 py-2 font-mono text-xs">${r.kode_perihal || '<em>kosong</em>'}</td>
+                    <td class="px-4 py-2">${r.nama_surat || '<em>kosong</em>'}</td>
+                    <td class="px-4 py-2">${r.kelompok || '<em>kosong</em>'}</td>
+                    <td class="px-4 py-2">${r.kategori}</td>
+                    <td class="px-4 py-2">${r.format_surat}</td>
+                    <td class="px-4 py-2 text-xs text-gray-500 max-w-xs truncate">${r.isi_template || '<em>kosong</em>'}</td>
+                </tr>`).join('') + (dataHasilParsingTemplate.length > 50 ? `<tr><td colspan="6" class="px-4 py-2 text-center text-gray-400 text-xs">... dan ${dataHasilParsingTemplate.length - 50} baris lainnya</td></tr>` : '');
+
+            document.getElementById('modalImporTemplate').classList.remove('hidden');
+        }
+
+        function konfirmasiImporTemplate() {
+            fetch('/api/template/bulk-import', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ template: dataHasilParsingTemplate })
+            })
+                .then(r => r.json())
+                .then(hasil => {
+                    document.getElementById('modalImporTemplate').classList.add('hidden');
+                    let pesan = `Impor selesai:\n✅ ${hasil.ditambah} template baru ditambahkan\n🔄 ${hasil.diperbarui} template diperbarui`;
+                    if (hasil.gagal > 0) pesan += `\n⚠️ ${hasil.gagal} baris gagal:\n${hasil.detailGagal.slice(0, 10).join('\n')}`;
+                    alert(pesan);
+                    muatTemplate();
+                })
+                .catch(err => alert('Gagal mengimpor: ' + err.message));
+        }
 
         function pindahTab(tab) {
             document.getElementById('tabTemplate').classList.toggle('hidden', tab !== 'template');
