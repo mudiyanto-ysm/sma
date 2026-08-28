@@ -382,7 +382,7 @@ app.get('/api/log/recent', async (req, res) => {
 });
 
 // Helper: susun 1 lembar surat (badan + tanda tangan + tembusan) — dipakai baik oleh generate satu-per-satu maupun generate massal
-function renderLembarSurat({ template, data_siswa, vars, pejabatTtd, pejabatMengetahui, tembusan, lampiran, kepada_yth, nomorLengkap, tanggalCetak }) {
+function renderLembarSurat({ template, data_siswa, vars, pejabatTtd, pejabatMengetahui, tembusan, lampiran, kepada_yth, nomorLengkap, tanggalCetak, pengaturan }) {
     const isiSurat = gantiVariabel(template.isi_template, vars);
 
     let badanSurat = '';
@@ -455,12 +455,28 @@ function renderLembarSurat({ template, data_siswa, vars, pejabatTtd, pejabatMeng
 
     const barisLampiran = lampiran && lampiran.trim() ? `<p class="nomor-surat" style="margin-top:-20px;">Lampiran: ${lampiran}</p>` : '';
 
+    // Baris kontak tambahan (telepon/email/website), ditampilkan digabung dalam 1 baris kalau ada isinya
+    const kontak = [pengaturan.telepon ? `Telp. ${pengaturan.telepon}` : '', pengaturan.email || '', pengaturan.website || ''].filter(Boolean).join(' | ');
+
+    // Kop surat dengan logo (kalau ada) di kiri + nama/alamat sekolah di sebelahnya; tanpa logo, teks tetap center seperti biasa
+    const kopSurat = pengaturan.logo_base64 ? `
+        <div class="kop-surat kop-dengan-logo">
+            <img src="${pengaturan.logo_base64}" alt="Logo Sekolah" class="logo-sekolah">
+            <div class="teks-kop">
+                <h1>${pengaturan.nama_sekolah}</h1>
+                <p>${pengaturan.alamat_sekolah}</p>
+                ${kontak ? `<p>${kontak}</p>` : ''}
+            </div>
+        </div>` : `
+        <div class="kop-surat">
+            <h1>${pengaturan.nama_sekolah}</h1>
+            <p>${pengaturan.alamat_sekolah}</p>
+            ${kontak ? `<p>${kontak}</p>` : ''}
+        </div>`;
+
     return `
         <div class="lembar-surat">
-            <div class="kop-surat">
-                <h1>SMA SWASTA JAKARTA TIMUR</h1>
-                <p>Jl. Raya Pendidikan No. 12, Suku Dinas Pendidikan Wilayah II, Kota Jakarta Timur, DKI Jakarta</p>
-            </div>
+            ${kopSurat}
             <p class="judul-surat">${template.nama_surat.toUpperCase()}</p>
             <p class="nomor-surat">Nomor: ${nomorLengkap}</p>
             ${barisLampiran}
@@ -477,6 +493,9 @@ const CSS_HALAMAN_SURAT = `
     .kop-surat { text-align: center; border-bottom: 3px double #000; padding-bottom: 10px; margin-bottom: 25px; }
     .kop-surat h1 { margin: 0; font-size: 16pt; font-weight: bold; }
     .kop-surat p { margin: 2px 0; font-size: 10pt; font-style: italic; }
+    .kop-dengan-logo { display: flex; align-items: center; justify-content: center; gap: 16px; text-align: left; }
+    .kop-dengan-logo .logo-sekolah { height: 70px; width: auto; flex-shrink: 0; }
+    .kop-dengan-logo .teks-kop { text-align: center; }
     .judul-surat { text-align: center; font-weight: bold; text-decoration: underline; margin-bottom: 5px; font-size: 14pt; }
     .nomor-surat { text-align: center; margin-top: 0; margin-bottom: 10px; font-family: monospace; }
     .isi-surat { text-align: justify; text-indent: 40px; margin-bottom: 20px; }
@@ -488,6 +507,41 @@ const CSS_HALAMAN_SURAT = `
     .lembar-surat:not(:last-of-type) { page-break-after: always; }
     @media print { .tombol-aksi, .hint-edit { display: none; } .area-edit { outline: none !important; background: transparent !important; } }
 `;
+
+// Helper: ambil pengaturan kop surat (nama sekolah, alamat, logo). Kalau belum pernah disimpan, kembalikan nilai default.
+async function ambilPengaturanKop() {
+    const rows = await q("SELECT * FROM pengaturan_sekolah WHERE id = 1");
+    if (rows.length > 0) return rows[0];
+    return {
+        nama_sekolah: 'SMA SWASTA JAKARTA TIMUR',
+        alamat_sekolah: 'Jl. Raya Pendidikan No. 12, Suku Dinas Pendidikan Wilayah II, Kota Jakarta Timur, DKI Jakarta',
+        telepon: null, email: null, website: null, logo_base64: null
+    };
+}
+
+// =====================================================
+// PENGATURAN KOP SURAT & LOGO
+// =====================================================
+
+app.get('/api/pengaturan/kop', async (req, res) => {
+    try {
+        res.json(await ambilPengaturanKop());
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.put('/api/pengaturan/kop', async (req, res) => {
+    const { nama_sekolah, alamat_sekolah, telepon, email, website, logo_base64 } = req.body;
+    if (!nama_sekolah || !alamat_sekolah) return res.status(400).json({ error: 'Nama Sekolah dan Alamat wajib diisi.' });
+    try {
+        await q(
+            `INSERT INTO pengaturan_sekolah (id, nama_sekolah, alamat_sekolah, telepon, email, website, logo_base64)
+             VALUES (1, ?, ?, ?, ?, ?, ?)
+             ON DUPLICATE KEY UPDATE nama_sekolah=VALUES(nama_sekolah), alamat_sekolah=VALUES(alamat_sekolah), telepon=VALUES(telepon), email=VALUES(email), website=VALUES(website), logo_base64=VALUES(logo_base64)`,
+            [nama_sekolah, alamat_sekolah, telepon || null, email || null, website || null, logo_base64 || null]
+        );
+        res.json({ success: true });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
 
 // =====================================================
 // GENERATOR SURAT — inti aplikasi
@@ -540,7 +594,7 @@ app.post('/api/surat/generate', async (req, res) => {
             vars.kelas = data_siswa.kelas;
         }
 
-        const lembarSurat = renderLembarSurat({ template, data_siswa, vars, pejabatTtd, pejabatMengetahui, tembusan, lampiran, kepada_yth, nomorLengkap, tanggalCetak });
+        const lembarSurat = renderLembarSurat({ template, data_siswa, vars, pejabatTtd, pejabatMengetahui, tembusan, lampiran, kepada_yth, nomorLengkap, tanggalCetak, pengaturan: await ambilPengaturanKop() });
 
         // Simpan riwayat cetak surat ini ke dalam tabel Log Surat Keluar (Buku Agenda TU)
         const penandatanganText = `${pejabatTtd.nama} (${pejabatTtd.jabatan})`;
@@ -605,6 +659,8 @@ app.post('/api/surat/generate-massal', async (req, res) => {
         const row = await q("SELECT IFNULL(MAX(nomor_urut), 0) FROM log_surat_keluar");
         let nomorUrutBerjalan = Object.values(row[0])[0];
 
+        const pengaturanKop = await ambilPengaturanKop(); // ambil sekali saja, dipakai untuk semua lembar dalam batch ini
+
         const semuaLembar = [];
         const gagal = [];
 
@@ -617,7 +673,7 @@ app.post('/api/surat/generate-massal', async (req, res) => {
             const nomorLengkap = `${nomorUrutBerjalan}/${template.kode_perihal}/SMA-SW/${bulanRomawi}/${tahunSekarang}`;
 
             const vars = { ...variabelManual, nama_siswa: data_siswa.nama_siswa, nisn: data_siswa.nisn, kelas: data_siswa.kelas };
-            const lembar = renderLembarSurat({ template, data_siswa, vars, pejabatTtd, pejabatMengetahui, tembusan, lampiran, kepada_yth, nomorLengkap, tanggalCetak });
+            const lembar = renderLembarSurat({ template, data_siswa, vars, pejabatTtd, pejabatMengetahui, tembusan, lampiran, kepada_yth, nomorLengkap, tanggalCetak, pengaturan: pengaturanKop });
             semuaLembar.push(lembar);
 
             const penandatanganText = `${pejabatTtd.nama} (${pejabatTtd.jabatan})`;
