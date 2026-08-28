@@ -18,7 +18,7 @@
                 <a href="dashboard.html" class="block px-4 py-2.5 rounded-lg text-slate-400 hover:bg-slate-700 hover:text-white transition">📁 Dashboard</a>
                 <a href="index.html" class="block px-4 py-2.5 rounded-lg bg-blue-600 text-white font-medium shadow-md">📑 Generator Surat</a>
                 <a href="data-siswa.html" class="block px-4 py-2.5 rounded-lg text-slate-400 hover:bg-slate-700 hover:text-white transition">👥 Data Siswa</a>
-                <span class="flex items-center justify-between px-4 py-2.5 rounded-lg text-slate-600 cursor-not-allowed select-none" title="Segera hadir">📝 Data Guru <span class="text-[10px] bg-slate-700 text-slate-400 px-1.5 py-0.5 rounded">segera</span></span>
+                <a href="data-guru.html" class="block px-4 py-2.5 rounded-lg text-slate-400 hover:bg-slate-700 hover:text-white transition">📝 Data Guru</a>
                 <a href="pengaturan.html" class="block px-4 py-2.5 rounded-lg text-slate-400 hover:bg-slate-700 hover:text-white transition">⚙️ Pengaturan</a>
             </nav>
             <div class="text-xs text-slate-500 border-t border-slate-700 pt-4">
@@ -64,8 +64,9 @@
                         <input type="text" id="kepadaYth" class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none">
                     </div>
 
-                    <!-- MENU 3: Field Variabel Dinamis, dibangun otomatis mengikuti jenis surat yang dipilih (input tanggal otomatis pakai kalender) -->
+                    <!-- MENU 3: Field Variabel Dinamis, dibangun otomatis mengikuti jenis surat yang dipilih (input tanggal otomatis pakai kalender, nama petugas bisa pilih dari Data Guru) -->
                     <div id="blokVariabel" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+                    <datalist id="daftarGuruList"></datalist>
 
                     <!-- MENU 4: Pejabat Penandatangan (diambil dari database, dikelola lewat menu Pengaturan) -->
                     <div>
@@ -131,6 +132,7 @@
         const selectMengetahui = document.getElementById('mengetahui');
 
         let daftarTemplate = [];
+        let daftarGuru = [];
         let idSiswaTerpilih = null;
 
         function labelkan(namaVar) {
@@ -177,6 +179,15 @@
                 selectPenandatangan.innerHTML = '<option value="">Gagal memuat daftar pejabat</option>';
             });
 
+        // Muat daftar guru untuk auto-lengkapi field "Nama Petugas" (misal di Surat Tugas)
+        fetch('/api/guru/list')
+            .then(r => r.json())
+            .then(data => {
+                daftarGuru = data;
+                document.getElementById('daftarGuruList').innerHTML = data.map(g => `<option value="${g.nama}">`).join('');
+            })
+            .catch(() => {});
+
         selectJenisSurat.addEventListener('change', function() {
             const template = daftarTemplate.find(t => String(t.id_template) === this.value);
             if (template) renderFormUntukTemplate(template);
@@ -199,12 +210,23 @@
 
             blokVariabel.innerHTML = template.variabel.map(v => {
                 const isTanggal = apakahFieldTanggal(v);
+                const isNamaPetugas = v === 'nama_petugas';
                 return `
                 <div>
                     <label class="block text-sm font-semibold text-gray-700 mb-2">${labelkan(v)}</label>
-                    <input type="${isTanggal ? 'date' : 'text'}" data-var="${v}" class="input-variabel w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="${isTanggal ? '' : 'Isi ' + labelkan(v).toLowerCase() + '...'}">
+                    <input type="${isTanggal ? 'date' : 'text'}" data-var="${v}" ${isNamaPetugas ? 'list="daftarGuruList"' : ''} class="input-variabel w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="${isTanggal ? '' : (isNamaPetugas ? 'Ketik atau pilih dari Data Guru...' : 'Isi ' + labelkan(v).toLowerCase() + '...')}">
                 </div>`;
             }).join('');
+
+            // Kalau template ini punya field nip_petugas juga, otomatis isi NIP saat nama_petugas cocok dengan salah satu data guru
+            const inputNamaPetugas = blokVariabel.querySelector('[data-var="nama_petugas"]');
+            const inputNipPetugas = blokVariabel.querySelector('[data-var="nip_petugas"]');
+            if (inputNamaPetugas && inputNipPetugas) {
+                inputNamaPetugas.addEventListener('input', function() {
+                    const guru = daftarGuru.find(g => g.nama === this.value);
+                    if (guru) inputNipPetugas.value = guru.nip_nuptk || '';
+                });
+            }
 
             const romawi = ['I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII'];
             const now = new Date();
