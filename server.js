@@ -121,6 +121,42 @@ app.delete('/api/siswa/:id', async (req, res) => {
 });
 
 // =====================================================
+// GURU — CRUD lengkap (dipakai halaman Data Guru), juga dipakai untuk auto-lengkapi Nama Petugas di Surat Tugas
+// =====================================================
+
+app.get('/api/guru/list', async (req, res) => {
+    try {
+        const results = await q("SELECT * FROM guru ORDER BY nama");
+        res.json(results);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/guru', async (req, res) => {
+    const { nama, nip_nuptk, mapel, status } = req.body;
+    if (!nama) return res.status(400).json({ error: 'Nama guru wajib diisi.' });
+    try {
+        const result = await q("INSERT INTO guru (nama, nip_nuptk, mapel, status) VALUES (?, ?, ?, ?)", [nama, nip_nuptk || null, mapel || null, status || 'GTY']);
+        res.json({ id_guru: result.insertId });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.put('/api/guru/:id', async (req, res) => {
+    const { nama, nip_nuptk, mapel, status } = req.body;
+    if (!nama) return res.status(400).json({ error: 'Nama guru wajib diisi.' });
+    try {
+        await q("UPDATE guru SET nama=?, nip_nuptk=?, mapel=?, status=? WHERE id_guru=?", [nama, nip_nuptk || null, mapel || null, status || 'GTY', req.params.id]);
+        res.json({ success: true });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.delete('/api/guru/:id', async (req, res) => {
+    try {
+        await q("DELETE FROM guru WHERE id_guru=?", [req.params.id]);
+        res.json({ success: true });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// =====================================================
 // PEJABAT — dipakai untuk dropdown Penandatangan & Yang Mengetahui, dikelola lewat halaman Pengaturan
 // =====================================================
 
