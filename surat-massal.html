@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Surat Massal - Sistem Manajemen Dokumen Sekolah</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 font-sans text-gray-800">
+
+    <div class="flex h-screen">
+        <div class="w-64 bg-slate-800 text-white flex flex-col p-4 space-y-6">
+            <div class="text-xl font-bold tracking-wider border-b border-slate-700 pb-4">
+                🏫 SIAKAD SMA
+            </div>
+            <nav class="flex-1 space-y-2">
+                <a href="dashboard.html" class="block px-4 py-2.5 rounded-lg text-slate-400 hover:bg-slate-700 hover:text-white transition">📁 Dashboard</a>
+                <a href="index.html" class="block px-4 py-2.5 rounded-lg text-slate-400 hover:bg-slate-700 hover:text-white transition">📑 Generator Surat</a>
+                <a href="surat-massal.html" class="block px-4 py-2.5 rounded-lg bg-blue-600 text-white font-medium shadow-md">🖨️ Surat Massal</a>
+                <a href="data-siswa.html" class="block px-4 py-2.5 rounded-lg text-slate-400 hover:bg-slate-700 hover:text-white transition">👥 Data Siswa</a>
+                <a href="data-guru.html" class="block px-4 py-2.5 rounded-lg text-slate-400 hover:bg-slate-700 hover:text-white transition">📝 Data Guru</a>
+                <a href="pengaturan.html" class="block px-4 py-2.5 rounded-lg text-slate-400 hover:bg-slate-700 hover:text-white transition">⚙️ Pengaturan</a>
+            </nav>
+            <div class="text-xs text-slate-500 border-t border-slate-700 pt-4">
+                Hak Akses: <span class="text-slate-300 font-medium">Staf Tata Usaha</span>
+            </div>
+        </div>
+
+        <div class="flex-1 flex flex-col overflow-y-auto">
+            <header class="bg-white border-b border-gray-200 px-8 py-4">
+                <h1 class="text-2xl font-bold text-gray-800">Surat Massal</h1>
+                <p class="text-sm text-gray-500 mt-1">Buat satu jenis surat untuk banyak siswa sekaligus, langsung digabung jadi satu berkas siap cetak.</p>
+            </header>
+
+            <main class="p-8 max-w-5xl w-full mx-auto space-y-6">
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 space-y-6">
+
+                    <!-- Jenis Surat (hanya yang berkategori 'siswa') -->
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">Pilih Jenis Surat</label>
+                        <select id="jenisSurat" class="w-full border border-gray-300 rounded-lg p-2.5 bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                            <option value="">Memuat daftar jenis surat...</option>
+                        </select>
+                        <p class="text-xs text-gray-500 mt-1">*Hanya jenis surat berbasis data siswa yang bisa dibuat massal (surat dinas ke instansi/yayasan tidak relevan dibuat massal).</p>
+                    </div>
+
+                    <!-- Filter & Pemilihan Siswa -->
+                    <div class="bg-slate-50 p-4 rounded-lg border border-slate-200 space-y-4">
+                        <h3 class="text-sm font-bold text-slate-700 tracking-wide uppercase">Pilih Siswa</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+                            <div>
+                                <label class="block text-xs font-medium text-gray-600 mb-1">Kelas</label>
+                                <select id="filterKelas" class="w-full border border-gray-300 bg-white rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                                    <option value="">Semua Kelas</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-600 mb-1">Jurusan</label>
+                                <select id="filterJurusan" class="w-full border border-gray-300 bg-white rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                                    <option value="">Semua Jurusan</option>
+                                    <option value="IPA">IPA</option>
+                                    <option value="IPS">IPS</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-600 mb-1">Status KJP</label>
+                                <select id="filterKjp" class="w-full border border-gray-300 bg-white rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                                    <option value="">Semua</option>
+                                    <option value="1">Penerima KJP</option>
+                                    <option value="0">Bukan Penerima KJP</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-600 mb-1">Cari Nama/NISN</label>
+                                <input type="text" id="filterCari" placeholder="Ketik untuk cari..." class="w-full border border-gray-300 bg-white rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                            </div>
+                        </div>
+
+                        <div class="flex items-center justify-between text-sm">
+                            <div class="space-x-3">
+                                <button onclick="pilihSemua(true)" class="text-blue-600 hover:underline font-medium">Pilih Semua (hasil filter)</button>
+                                <button onclick="pilihSemua(false)" class="text-gray-500 hover:underline font-medium">Batal Semua</button>
+                            </div>
+                            <span id="jumlahTerpilih" class="font-semibold text-slate-700">0 siswa dipilih</span>
+                        </div>
+
+                        <div id="daftarSiswaCheckbox" class="bg-white border border-gray-200 rounded-lg max-h-72 overflow-y-auto divide-y divide-gray-100">
+                            <p class="p-4 text-sm text-gray-400 text-center">Memuat data siswa...</p>
+                        </div>
+                    </div>
+
+                    <!-- Kepada Yth (untuk jaga-jaga kalau ada surat siswa berformat dinas) -->
+                    <div id="blokKepadaYth" class="hidden">
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">Ditujukan Kepada (Kepada Yth.)</label>
+                        <input type="text" id="kepadaYth" class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                    </div>
+
+                    <!-- Field Variabel Dinamis — berlaku SAMA untuk semua siswa terpilih -->
+                    <div>
+                        <p class="text-xs text-gray-500 mb-2">Kolom di bawah ini akan diisi <strong>sama untuk semua siswa</strong> yang dipilih. Kalau ada siswa yang butuh redaksi beda, edit langsung di lembar hasil cetaknya nanti.</p>
+                        <div id="blokVariabel" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+                    </div>
+
+                    <!-- Pejabat Penandatangan -->
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">Pejabat Penandatangan Dokumen</label>
+                        <select id="penandatangan" class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                            <option value="">Memuat daftar pejabat...</option>
+                        </select>
+                    </div>
+
+                    <!-- Opsi Tambahan -->
+                    <details class="border border-gray-200 rounded-lg">
+                        <summary class="cursor-pointer select-none px-4 py-3 text-sm font-semibold text-gray-700 bg-gray-50 rounded-lg">+ Opsi Tambahan (Mengetahui, Tembusan, Lampiran) — opsional</summary>
+                        <div class="p-4 space-y-4 border-t border-gray-200">
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">Yang Mengetahui (opsional)</label>
+                                <select id="mengetahui" class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                                    <option value="">— Tidak perlu —</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">Tembusan (opsional)</label>
+                                <textarea id="tembusan" rows="2" placeholder="Satu nama per baris" class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none"></textarea>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">Lampiran (opsional)</label>
+                                <input type="text" id="lampiran" placeholder="Contoh: 1 (satu) lembar" class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                            </div>
+                        </div>
+                    </details>
+
+                    <button type="button" onclick="prosesCetakMassal()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-lg shadow transition flex justify-center items-center gap-2 cursor-pointer text-center">
+                        🖨️ Buat Surat Massal (<span id="jumlahTombol">0</span> Siswa)
+                    </button>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script>
+        let daftarTemplate = [];
+        let semuaSiswa = [];
+        let siswaTerpilih = new Set();
+
+        function labelkan(namaVar) {
+            return namaVar.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+        }
+        function apakahFieldTanggal(namaVar) {
+            return /tanggal|tmt/i.test(namaVar);
+        }
+
+        // Muat jenis surat, hanya yang kategori 'siswa'
+        fetch('/api/template/list')
+            .then(r => r.json())
+            .then(data => {
+                daftarTemplate = data.filter(t => t.kategori === 'siswa');
+                const selectEl = document.getElementById('jenisSurat');
+                if (daftarTemplate.length === 0) {
+                    selectEl.innerHTML = '<option value="">Tidak ada jenis surat berbasis siswa</option>';
+                    return;
+                }
+                const kelompokMap = {};
+                daftarTemplate.forEach(t => {
+                    if (!kelompokMap[t.kelompok]) kelompokMap[t.kelompok] = [];
+                    kelompokMap[t.kelompok].push(t);
+                });
+                selectEl.innerHTML = Object.keys(kelompokMap).map(kelompok => `
+                    <optgroup label="${kelompok}">
+                        ${kelompokMap[kelompok].map(t => `<option value="${t.id_template}">${t.nama_surat} (${t.kode_perihal})</option>`).join('')}
+                    </optgroup>
+                `).join('');
+                renderFormUntukTemplate(daftarTemplate[0]);
+            })
+            .catch(() => {
+                document.getElementById('jenisSurat').innerHTML = '<option value="">Gagal memuat daftar surat</option>';
+            });
+
+        document.getElementById('jenisSurat').addEventListener('change', function() {
+            const t = daftarTemplate.find(x => String(x.id_template) === this.value);
+            if (t) renderFormUntukTemplate(t);
+        });
+
+        function renderFormUntukTemplate(template) {
+            document.getElementById('blokKepadaYth').classList.toggle('hidden', template.format_surat !== 'dinas');
+            document.getElementById('kepadaYth').value = template.kepada_yth_default || '';
+            document.getElementById('blokVariabel').innerHTML = template.variabel.map(v => {
+                const isTanggal = apakahFieldTanggal(v);
+                return `
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">${labelkan(v)}</label>
+                    <input type="${isTanggal ? 'date' : 'text'}" data-var="${v}" class="input-variabel w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                </div>`;
+            }).join('');
+        }
+
+        // Muat daftar pejabat
+        fetch('/api/pejabat/list?aktif=1')
+            .then(r => r.json())
+            .then(data => {
+                const opsi = data.map(p => `<option value="${p.id_pejabat}">${p.nama} (${p.jabatan})</option>`).join('');
+                document.getElementById('penandatangan').innerHTML = opsi || '<option value="">Belum ada pejabat</option>';
+                document.getElementById('mengetahui').innerHTML = '<option value="">— Tidak perlu —</option>' + opsi;
+            });
+
+        // Muat daftar siswa + isi filter kelas otomatis dari data yang ada
+        fetch('/api/siswa/list')
+            .then(r => r.json())
+            .then(data => {
+                semuaSiswa = data;
+                const kelasUnik = [...new Set(data.map(s => s.kelas))].sort();
+                document.getElementById('filterKelas').innerHTML = '<option value="">Semua Kelas</option>' + kelasUnik.map(k => `<option value="${k}">${k}</option>`).join('');
+                renderDaftarSiswa();
+            })
+            .catch(() => {
+                document.getElementById('daftarSiswaCheckbox').innerHTML = '<p class="p-4 text-sm text-red-500 text-center">Gagal memuat data siswa.</p>';
+            });
+
+        function siswaTerfilter() {
+            const kelas = document.getElementById('filterKelas').value;
+            const jurusan = document.getElementById('filterJurusan').value;
+            const kjp = document.getElementById('filterKjp').value;
+            const kw = document.getElementById('filterCari').value.toLowerCase();
+            return semuaSiswa.filter(s =>
+                (!kelas || s.kelas === kelas) &&
+                (!jurusan || s.jurusan === jurusan) &&
+                (kjp === '' || String(s.penerima_kjp) === kjp) &&
+                (!kw || s.nama_siswa.toLowerCase().includes(kw) || s.nisn.includes(kw))
+            );
+        }
+
+        function renderDaftarSiswa() {
+            const hasil = siswaTerfilter();
+            const kontainer = document.getElementById('daftarSiswaCheckbox');
+            if (hasil.length === 0) {
+                kontainer.innerHTML = '<p class="p-4 text-sm text-gray-400 text-center">Tidak ada siswa yang cocok dengan filter.</p>';
+                return;
+            }
+            kontainer.innerHTML = hasil.map(s => `
+                <label class="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 cursor-pointer text-sm">
+                    <input type="checkbox" class="rounded chk-siswa" value="${s.id_siswa}" ${siswaTerpilih.has(s.id_siswa) ? 'checked' : ''} onchange="toggleSiswa(${s.id_siswa}, this.checked)">
+                    <span class="font-medium text-slate-800">${s.nama_siswa}</span>
+                    <span class="text-gray-500">— ${s.nisn} (${s.kelas}${s.jurusan ? ' · ' + s.jurusan : ''}${s.penerima_kjp ? ' · KJP' : ''})</span>
+                </label>`).join('');
+        }
+
+        ['filterKelas', 'filterJurusan', 'filterKjp'].forEach(id => document.getElementById(id).addEventListener('change', renderDaftarSiswa));
+        document.getElementById('filterCari').addEventListener('input', renderDaftarSiswa);
+
+        function toggleSiswa(id, checked) {
+            if (checked) siswaTerpilih.add(id); else siswaTerpilih.delete(id);
+            perbaruiJumlah();
+        }
+
+        function pilihSemua(pilih) {
+            const hasil = siswaTerfilter();
+            if (pilih) hasil.forEach(s => siswaTerpilih.add(s.id_siswa));
+            else hasil.forEach(s => siswaTerpilih.delete(s.id_siswa));
+            renderDaftarSiswa();
+            perbaruiJumlah();
+        }
+
+        function perbaruiJumlah() {
+            document.getElementById('jumlahTerpilih').textContent = `${siswaTerpilih.size} siswa dipilih`;
+            document.getElementById('jumlahTombol').textContent = siswaTerpilih.size;
+        }
+
+        function prosesCetakMassal() {
+            const template = daftarTemplate.find(t => String(t.id_template) === document.getElementById('jenisSurat').value);
+            if (!template) { alert('Pilih jenis surat terlebih dahulu.'); return; }
+            if (siswaTerpilih.size === 0) { alert('Pilih minimal satu siswa terlebih dahulu.'); return; }
+            const penandatangan = document.getElementById('penandatangan').value;
+            if (!penandatangan) { alert('Pilih pejabat penandatangan terlebih dahulu.'); return; }
+            if (!confirm(`Buat ${siswaTerpilih.size} surat "${template.nama_surat}" sekaligus?`)) return;
+
+            const formBayangan = document.createElement('form');
+            formBayangan.method = 'POST';
+            formBayangan.action = '/api/surat/generate-massal';
+            formBayangan.target = '_blank';
+
+            function tambahInput(name, value) {
+                const el = document.createElement('input');
+                el.type = 'hidden'; el.name = name; el.value = value ?? '';
+                formBayangan.appendChild(el);
+            }
+
+            tambahInput('id_template', template.id_template);
+            tambahInput('penandatangan_id', penandatangan);
+            if (document.getElementById('mengetahui').value) tambahInput('mengetahui_id', document.getElementById('mengetahui').value);
+            tambahInput('tembusan', document.getElementById('tembusan').value);
+            tambahInput('lampiran', document.getElementById('lampiran').value);
+            if (template.format_surat === 'dinas') tambahInput('kepada_yth', document.getElementById('kepadaYth').value);
+
+            document.querySelectorAll('.input-variabel').forEach(el => tambahInput(`variabel[${el.dataset.var}]`, el.value));
+            siswaTerpilih.forEach(id => tambahInput('id_siswa_list[]', id));
+
+            document.body.appendChild(formBayangan);
+            formBayangan.submit();
+            document.body.removeChild(formBayangan);
+        }
+    </script>
+</body>
+</html>
