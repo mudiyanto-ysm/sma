@@ -1,318 +1,440 @@
-<!DOCTYPE html>
-<html lang="id">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistem Manajemen Dokumen Sekolah</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body class="bg-gray-100 font-sans text-gray-800">
+const express = require('express');
+const mysql = require('mysql2');
+const path = require('path');
+const app = express();
+const PORT = process.env.PORT || 3000;
 
-    <div class="flex h-screen">
-        <!-- PANEL NAVIGASI UTAMA (SIDEBAR) -->
-        <div class="w-64 bg-slate-800 text-white flex flex-col p-4 space-y-6">
-            <div class="text-xl font-bold tracking-wider border-b border-slate-700 pb-4">
-                🏫 SIAKAD SMA
-            </div>
-            <nav class="flex-1 space-y-2">
-                <a href="dashboard.html" class="block px-4 py-2.5 rounded-lg text-slate-400 hover:bg-slate-700 hover:text-white transition">📁 Dashboard</a>
-                <a href="index.html" class="block px-4 py-2.5 rounded-lg bg-blue-600 text-white font-medium shadow-md">📑 Generator Surat</a>
-                <a href="data-siswa.html" class="block px-4 py-2.5 rounded-lg text-slate-400 hover:bg-slate-700 hover:text-white transition">👥 Data Siswa</a>
-                <span class="flex items-center justify-between px-4 py-2.5 rounded-lg text-slate-600 cursor-not-allowed select-none" title="Segera hadir">📝 Data Guru <span class="text-[10px] bg-slate-700 text-slate-400 px-1.5 py-0.5 rounded">segera</span></span>
-                <a href="pengaturan.html" class="block px-4 py-2.5 rounded-lg text-slate-400 hover:bg-slate-700 hover:text-white transition">⚙️ Pengaturan</a>
-            </nav>
-            <div class="text-xs text-slate-500 border-t border-slate-700 pt-4">
-                Hak Akses: <span class="text-slate-300 font-medium">Staf Tata Usaha</span>
-            </div>
-        </div>
+// 1. Konfigurasi Koneksi Database MySQL
+// Mendukung 2 mode secara otomatis:
+//   - LOKAL (XAMPP): jika tidak ada environment variable, jatuh ke default localhost/root/tanpa password
+//   - ONLINE (Railway/hosting lain): terisi otomatis dari environment variable MYSQLHOST dkk.
+//     yang disuntikkan oleh plugin MySQL Railway, atau DB_HOST dkk. bila pakai penyedia lain.
+const db = mysql.createConnection({
+    host: process.env.MYSQLHOST || process.env.DB_HOST || 'localhost',
+    port: process.env.MYSQLPORT || process.env.DB_PORT || 3306,
+    user: process.env.MYSQLUSER || process.env.DB_USER || 'root',
+    password: process.env.MYSQLPASSWORD || process.env.DB_PASSWORD || '',
+    database: process.env.MYSQLDATABASE || process.env.DB_NAME || 'db_persuratan_sekolah'
+});
 
-        <!-- AREA LUAR HALAMAN FORMULIR INPUT -->
-        <div class="flex-1 flex flex-col overflow-y-auto">
-            <header class="bg-white border-b border-gray-200 px-8 py-4 flex justify-between items-center">
-                <h1 class="text-2xl font-bold text-gray-800">Form Generator Surat Keluar</h1>
-                <span class="text-sm bg-blue-50 text-blue-700 font-medium px-3 py-1 rounded-full border border-blue-200">Tahun Ajaran 2026/2027</span>
-            </header>
+db.connect((err) => {
+    if (err) {
+        console.error('Gagal terhubung ke database. Pastikan XAMPP/MySQL Anda sudah aktif!');
+        throw err;
+    }
+    console.log('Database MySQL terhubung dengan sukses!');
+});
 
-            <main class="p-8 max-w-4xl w-full mx-auto space-y-6">
-                <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 space-y-6">
+// Bungkus db.query jadi Promise supaya bisa dipakai dengan async/await (lebih rapi untuk endpoint yang banyak query)
+function q(sql, params = []) {
+    return new Promise((resolve, reject) => {
+        db.query(sql, params, (err, results) => err ? reject(err) : resolve(results));
+    });
+}
 
-                    <!-- MENU 1: Pilih Jenis Template Surat -->
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">Pilih Jenis Surat</label>
-                        <select id="jenisSurat" class="w-full border border-gray-300 rounded-lg p-2.5 bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:outline-none">
-                            <option value="">Memuat daftar jenis surat...</option>
-                        </select>
-                        <p class="text-xs text-gray-500 mt-1">*Format penomoran akan otomatis divalidasi oleh sistem database utama.</p>
-                    </div>
+// Middleware standard untuk membaca input form (termasuk nested field seperti variabel[key]) dan file statis
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(express.static(path.join(__dirname)));
 
-                    <!-- MENU 2: Fitur Live Search Hubungan Database (muncul otomatis hanya untuk surat berbasis data siswa) -->
-                    <div id="blokCariSiswa" class="bg-slate-50 p-4 rounded-lg border border-slate-200 space-y-4 hidden">
-                        <h3 class="text-sm font-bold text-slate-700 tracking-wide uppercase">Cari Data Siswa (Integrasi Database)</h3>
-                        <div class="relative">
-                            <label class="block text-xs font-medium text-gray-600 mb-1">Ketik Nama atau NISN Siswa</label>
-                            <input type="text" id="cariSiswa" autocomplete="off" placeholder="Ketik minimal 3 huruf..." class="w-full border border-gray-300 bg-white rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none">
-                            <div id="dropdownHasil" class="hidden absolute z-10 w-full bg-white border border-gray-200 rounded-lg shadow-lg mt-1 max-h-56 overflow-y-auto"></div>
-                        </div>
-                        <div id="notifSiswa" class="bg-amber-50 border border-amber-200 text-amber-800 rounded-lg p-3 text-sm flex items-center justify-between">
-                            <div id="textNotif">Silakan ketik nama siswa di atas untuk memuat data identitas resmi.</div>
-                        </div>
-                    </div>
+const NAMA_BULAN = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
 
-                    <!-- MENU 2B: Kepada Yth (muncul otomatis hanya untuk surat berformat "dinas") -->
-                    <div id="blokKepadaYth" class="hidden">
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">Ditujukan Kepada (Kepada Yth.)</label>
-                        <input type="text" id="kepadaYth" class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none">
-                    </div>
+// Helper: konversi angka bulan (1-12) ke format romawi, dipakai untuk nomor surat dinas
+function bulanKeRomawi(bulan) {
+    const romawi = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'];
+    return romawi[bulan - 1] || 'I';
+}
 
-                    <!-- MENU 3: Field Variabel Dinamis, dibangun otomatis mengikuti jenis surat yang dipilih (input tanggal otomatis pakai kalender) -->
-                    <div id="blokVariabel" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+// Helper: ambil daftar nama variabel {seperti_ini} dari isi_template, kecuali field siswa yang sudah otomatis
+function ekstrakVariabel(isiTemplate, kategori) {
+    const otomatis = kategori === 'siswa' ? ['nama_siswa', 'nisn', 'kelas'] : [];
+    const ditemukan = [...isiTemplate.matchAll(/\{(\w+)\}/g)].map(m => m[1]);
+    return [...new Set(ditemukan)].filter(v => !otomatis.includes(v));
+}
 
-                    <!-- MENU 4: Pejabat Penandatangan (diambil dari database, dikelola lewat menu Pengaturan) -->
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">Pejabat Penandatangan Dokumen</label>
-                        <select id="penandatangan" class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none">
-                            <option value="">Memuat daftar pejabat...</option>
-                        </select>
-                    </div>
+// Helper: kalau nilai berformat tanggal (YYYY-MM-DD, dari <input type="date">), ubah ke format Indonesia "27 Agustus 2026"
+function formatNilaiVariabel(nilai) {
+    if (typeof nilai === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(nilai)) {
+        const [y, m, d] = nilai.split('-').map(Number);
+        return `${d} ${NAMA_BULAN[m - 1]} ${y}`;
+    }
+    return nilai;
+}
 
-                    <!-- MENU 5: Opsi Tambahan (opsional) — Mengetahui, Tembusan, Lampiran -->
-                    <details class="border border-gray-200 rounded-lg">
-                        <summary class="cursor-pointer select-none px-4 py-3 text-sm font-semibold text-gray-700 bg-gray-50 rounded-lg">+ Opsi Tambahan (Mengetahui, Tembusan, Lampiran) — opsional</summary>
-                        <div class="p-4 space-y-4 border-t border-gray-200">
-                            <div>
-                                <label class="block text-sm font-semibold text-gray-700 mb-2">Yang Mengetahui (opsional)</label>
-                                <select id="mengetahui" class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none">
-                                    <option value="">— Tidak perlu —</option>
-                                </select>
-                                <p class="text-xs text-gray-500 mt-1">Kalau diisi, surat akan menampilkan 2 kolom tanda tangan (Mengetahui &amp; Penandatangan).</p>
-                            </div>
-                            <div>
-                                <label class="block text-sm font-semibold text-gray-700 mb-2">Tembusan (opsional)</label>
-                                <textarea id="tembusan" rows="3" placeholder="Satu nama per baris, contoh:&#10;Ketua Yayasan Ar-Ridho&#10;Arsip TU" class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none"></textarea>
-                            </div>
-                            <div>
-                                <label class="block text-sm font-semibold text-gray-700 mb-2">Lampiran (opsional)</label>
-                                <input type="text" id="lampiran" placeholder="Contoh: 1 (satu) lembar" class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none">
-                            </div>
-                        </div>
-                    </details>
+// Helper: ganti semua {key} pada teks dengan nilai dari objek vars (replace-all yang aman, plus auto-format tanggal)
+function gantiVariabel(teks, vars) {
+    return teks.replace(/\{(\w+)\}/g, (match, key) => {
+        const nilai = vars[key];
+        if (nilai === undefined || nilai === null || nilai === '') return '[......]';
+        return String(formatNilaiVariabel(nilai));
+    }).replace(/\n/g, '<br>');
+}
 
-                    <!-- MENU 6: Live Preview Format Penomoran -->
-                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
-                        <span class="block text-xs uppercase tracking-wider text-blue-600 font-bold mb-1">Pratinjau Pola Format Nomor Surat Keluar</span>
-                        <span id="previewNomor" class="text-lg font-mono font-bold text-slate-800">[No.Urut]/.../SMA-SW/.../....</span>
-                    </div>
+// =====================================================
+// SISWA — pencarian cepat (dipakai Generator Surat) + CRUD lengkap (dipakai halaman Data Siswa)
+// =====================================================
 
-                    <!-- MENU 7: Tombol Eksekusi Aksi -->
-                    <div class="flex flex-col sm:flex-row gap-3 pt-2">
-                        <button type="button" onclick="prosesCetak()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-lg shadow transition flex justify-center items-center gap-2 cursor-pointer text-center">
-                            🖨️ Proses Dokumen & Buka Lembar Cetak (PDF)
-                        </button>
-                    </div>
-                    <p class="text-xs text-gray-500 text-center">💡 Setelah surat terbuka di tab baru, Anda masih bisa mengklik dan mengedit kalimatnya langsung sebelum mencetak.</p>
+app.get('/api/siswa/search', async (req, res) => {
+    const keyword = req.query.q || '';
+    if (!keyword) return res.json([]);
+    try {
+        const results = await q("SELECT id_siswa, nisn, nama_siswa, kelas FROM master_siswa WHERE nama_siswa LIKE ? OR nisn LIKE ? LIMIT 5", [`%${keyword}%`, `%${keyword}%`]);
+        res.json(results);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
 
-                </div>
-            </main>
-        </div>
-    </div>
+app.get('/api/siswa/list', async (req, res) => {
+    try {
+        const results = await q("SELECT * FROM master_siswa ORDER BY nama_siswa");
+        res.json(results);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
 
-    <script>
-        const selectJenisSurat = document.getElementById('jenisSurat');
-        const blokCariSiswa = document.getElementById('blokCariSiswa');
-        const blokKepadaYth = document.getElementById('blokKepadaYth');
-        const inputKepadaYth = document.getElementById('kepadaYth');
-        const blokVariabel = document.getElementById('blokVariabel');
-        const inputCari = document.getElementById('cariSiswa');
-        const notifBox = document.getElementById('notifSiswa');
-        const textNotif = document.getElementById('textNotif');
-        const dropdownHasil = document.getElementById('dropdownHasil');
-        const previewNomor = document.getElementById('previewNomor');
-        const selectPenandatangan = document.getElementById('penandatangan');
-        const selectMengetahui = document.getElementById('mengetahui');
+app.post('/api/siswa', async (req, res) => {
+    const { nisn, nama_siswa, kelas } = req.body;
+    if (!nisn || !nama_siswa || !kelas) return res.status(400).json({ error: 'NISN, Nama, dan Kelas wajib diisi.' });
+    try {
+        const result = await q("INSERT INTO master_siswa (nisn, nama_siswa, kelas) VALUES (?, ?, ?)", [nisn, nama_siswa, kelas]);
+        res.json({ id_siswa: result.insertId, nisn, nama_siswa, kelas });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
 
-        let daftarTemplate = [];
-        let idSiswaTerpilih = null;
+app.put('/api/siswa/:id', async (req, res) => {
+    const { nisn, nama_siswa, kelas } = req.body;
+    if (!nisn || !nama_siswa || !kelas) return res.status(400).json({ error: 'NISN, Nama, dan Kelas wajib diisi.' });
+    try {
+        await q("UPDATE master_siswa SET nisn=?, nama_siswa=?, kelas=? WHERE id_siswa=?", [nisn, nama_siswa, kelas, req.params.id]);
+        res.json({ success: true });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
 
-        function labelkan(namaVar) {
-            return namaVar.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+app.delete('/api/siswa/:id', async (req, res) => {
+    try {
+        await q("DELETE FROM master_siswa WHERE id_siswa=?", [req.params.id]);
+        res.json({ success: true });
+    } catch (err) {
+        if (err.code === 'ER_ROW_IS_REFERENCED_2' || err.code === 'ER_ROW_IS_REFERENCED') {
+            return res.status(409).json({ error: 'Siswa ini tidak bisa dihapus karena sudah pernah dibuatkan surat. Riwayat surat harus tetap tersimpan untuk arsip.' });
         }
+        res.status(500).json({ error: err.message });
+    }
+});
 
-        // Field yang namanya mengandung 'tanggal' atau 'tmt' otomatis dijadikan input kalender
-        function apakahFieldTanggal(namaVar) {
-            return /tanggal|tmt/i.test(namaVar);
+// =====================================================
+// PEJABAT — dipakai untuk dropdown Penandatangan & Yang Mengetahui, dikelola lewat halaman Pengaturan
+// =====================================================
+
+app.get('/api/pejabat/list', async (req, res) => {
+    try {
+        const hanyaAktif = req.query.aktif === '1';
+        const results = await q(`SELECT * FROM pejabat ${hanyaAktif ? 'WHERE aktif = 1' : ''} ORDER BY nama`);
+        res.json(results);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/pejabat', async (req, res) => {
+    const { nama, jabatan, nip, aktif } = req.body;
+    if (!nama || !jabatan) return res.status(400).json({ error: 'Nama dan Jabatan wajib diisi.' });
+    try {
+        const result = await q("INSERT INTO pejabat (nama, jabatan, nip, aktif) VALUES (?, ?, ?, ?)", [nama, jabatan, nip || null, aktif === false ? 0 : 1]);
+        res.json({ id_pejabat: result.insertId });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.put('/api/pejabat/:id', async (req, res) => {
+    const { nama, jabatan, nip, aktif } = req.body;
+    if (!nama || !jabatan) return res.status(400).json({ error: 'Nama dan Jabatan wajib diisi.' });
+    try {
+        await q("UPDATE pejabat SET nama=?, jabatan=?, nip=?, aktif=? WHERE id_pejabat=?", [nama, jabatan, nip || null, aktif === false ? 0 : 1, req.params.id]);
+        res.json({ success: true });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.delete('/api/pejabat/:id', async (req, res) => {
+    try {
+        await q("DELETE FROM pejabat WHERE id_pejabat=?", [req.params.id]);
+        res.json({ success: true });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// =====================================================
+// TEMPLATE SURAT — daftar (dipakai Generator Surat) + CRUD lengkap (dipakai halaman Pengaturan)
+// =====================================================
+
+app.get('/api/template/list', async (req, res) => {
+    try {
+        const results = await q("SELECT * FROM template_dokumen ORDER BY kelompok, id_template");
+        const daftar = results.map(t => ({
+            id_template: t.id_template,
+            kode_perihal: t.kode_perihal,
+            nama_surat: t.nama_surat,
+            kelompok: t.kelompok,
+            kategori: t.kategori,
+            format_surat: t.format_surat,
+            kepada_yth_default: t.kepada_yth_default,
+            isi_template: t.isi_template,
+            variabel: ekstrakVariabel(t.isi_template, t.kategori)
+        }));
+        res.json(daftar);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/template', async (req, res) => {
+    const { kode_perihal, nama_surat, kelompok, kategori, format_surat, kepada_yth_default, isi_template } = req.body;
+    if (!kode_perihal || !nama_surat || !kelompok || !isi_template) {
+        return res.status(400).json({ error: 'Kode Perihal, Nama Surat, Kelompok, dan Isi Template wajib diisi.' });
+    }
+    try {
+        const result = await q(
+            "INSERT INTO template_dokumen (kode_perihal, nama_surat, kelompok, kategori, format_surat, kepada_yth_default, isi_template) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            [kode_perihal, nama_surat, kelompok, kategori || 'umum', format_surat || 'dinas', kepada_yth_default || null, isi_template]
+        );
+        res.json({ id_template: result.insertId });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.put('/api/template/:id', async (req, res) => {
+    const { kode_perihal, nama_surat, kelompok, kategori, format_surat, kepada_yth_default, isi_template } = req.body;
+    if (!kode_perihal || !nama_surat || !kelompok || !isi_template) {
+        return res.status(400).json({ error: 'Kode Perihal, Nama Surat, Kelompok, dan Isi Template wajib diisi.' });
+    }
+    try {
+        await q(
+            "UPDATE template_dokumen SET kode_perihal=?, nama_surat=?, kelompok=?, kategori=?, format_surat=?, kepada_yth_default=?, isi_template=? WHERE id_template=?",
+            [kode_perihal, nama_surat, kelompok, kategori || 'umum', format_surat || 'dinas', kepada_yth_default || null, isi_template, req.params.id]
+        );
+        res.json({ success: true });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.delete('/api/template/:id', async (req, res) => {
+    try {
+        await q("DELETE FROM template_dokumen WHERE id_template=?", [req.params.id]);
+        res.json({ success: true });
+    } catch (err) {
+        if (err.code === 'ER_ROW_IS_REFERENCED_2' || err.code === 'ER_ROW_IS_REFERENCED') {
+            return res.status(409).json({ error: 'Template ini tidak bisa dihapus karena sudah pernah dipakai menerbitkan surat. Riwayat surat harus tetap tersimpan untuk arsip.' });
         }
+        res.status(500).json({ error: err.message });
+    }
+});
 
-        // Muat daftar jenis surat
-        fetch('/api/template/list')
-            .then(r => r.json())
-            .then(data => {
-                daftarTemplate = data;
-                const kelompokMap = {};
-                data.forEach(t => {
-                    if (!kelompokMap[t.kelompok]) kelompokMap[t.kelompok] = [];
-                    kelompokMap[t.kelompok].push(t);
-                });
+// =====================================================
+// DASHBOARD — statistik ringkas + daftar surat terbaru
+// =====================================================
 
-                selectJenisSurat.innerHTML = Object.keys(kelompokMap).map(kelompok => `
-                    <optgroup label="${kelompok}">
-                        ${kelompokMap[kelompok].map(t => `<option value="${t.id_template}">${t.nama_surat} (${t.kode_perihal})</option>`).join('')}
-                    </optgroup>
-                `).join('');
-
-                renderFormUntukTemplate(data[0]);
-            })
-            .catch(() => {
-                selectJenisSurat.innerHTML = '<option value="">Gagal memuat daftar surat dari server</option>';
-            });
-
-        // Muat daftar pejabat untuk dropdown Penandatangan & Yang Mengetahui
-        fetch('/api/pejabat/list?aktif=1')
-            .then(r => r.json())
-            .then(data => {
-                const opsi = data.map(p => `<option value="${p.id_pejabat}">${p.nama} (${p.jabatan})</option>`).join('');
-                selectPenandatangan.innerHTML = opsi || '<option value="">Belum ada pejabat, tambahkan di menu Pengaturan</option>';
-                selectMengetahui.innerHTML = '<option value="">— Tidak perlu —</option>' + opsi;
-            })
-            .catch(() => {
-                selectPenandatangan.innerHTML = '<option value="">Gagal memuat daftar pejabat</option>';
-            });
-
-        selectJenisSurat.addEventListener('change', function() {
-            const template = daftarTemplate.find(t => String(t.id_template) === this.value);
-            if (template) renderFormUntukTemplate(template);
+app.get('/api/dashboard/stats', async (req, res) => {
+    try {
+        const [siswa, bulanIni, tahunIni, template] = await Promise.all([
+            q("SELECT COUNT(*) AS c FROM master_siswa"),
+            q("SELECT COUNT(*) AS c FROM log_surat_keluar WHERE MONTH(created_at) = MONTH(CURDATE()) AND YEAR(created_at) = YEAR(CURDATE())"),
+            q("SELECT COUNT(*) AS c FROM log_surat_keluar WHERE YEAR(created_at) = YEAR(CURDATE())"),
+            q("SELECT COUNT(*) AS c FROM template_dokumen")
+        ]);
+        res.json({
+            totalSiswa: siswa[0].c,
+            suratBulanIni: bulanIni[0].c,
+            suratTahunIni: tahunIni[0].c,
+            totalTemplate: template[0].c
         });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
 
-        function renderFormUntukTemplate(template) {
-            if (!template) return;
-            idSiswaTerpilih = null;
-            inputCari.value = '';
-            tutupDropdown();
+app.get('/api/log/recent', async (req, res) => {
+    const limit = Math.min(parseInt(req.query.limit) || 10, 50);
+    try {
+        const results = await q(`
+            SELECT l.id, l.nomor_lengkap, l.created_at, l.penandatangan, t.nama_surat, s.nama_siswa
+            FROM log_surat_keluar l
+            LEFT JOIN template_dokumen t ON l.id_template = t.id_template
+            LEFT JOIN master_siswa s ON l.id_siswa = s.id_siswa
+            ORDER BY l.created_at DESC LIMIT ?`, [limit]);
+        res.json(results);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
 
-            blokCariSiswa.classList.toggle('hidden', template.kategori !== 'siswa');
-            if (template.kategori === 'siswa') {
-                notifBox.className = "bg-amber-50 border border-amber-200 text-amber-800 rounded-lg p-3 text-sm flex items-center justify-between";
-                textNotif.innerHTML = "Silakan ketik nama siswa di atas untuk memuat data identitas resmi.";
-            }
+// =====================================================
+// GENERATOR SURAT — inti aplikasi
+// =====================================================
 
-            blokKepadaYth.classList.toggle('hidden', template.format_surat !== 'dinas');
-            inputKepadaYth.value = template.kepada_yth_default || '';
+app.post('/api/surat/generate', async (req, res) => {
+    const { id_template, id_siswa, kepada_yth, penandatangan_id, mengetahui_id, tembusan, lampiran } = req.body;
+    const variabelManual = req.body.variabel || {};
 
-            blokVariabel.innerHTML = template.variabel.map(v => {
-                const isTanggal = apakahFieldTanggal(v);
-                return `
-                <div>
-                    <label class="block text-sm font-semibold text-gray-700 mb-2">${labelkan(v)}</label>
-                    <input type="${isTanggal ? 'date' : 'text'}" data-var="${v}" class="input-variabel w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="${isTanggal ? '' : 'Isi ' + labelkan(v).toLowerCase() + '...'}">
+    if (!id_template) return res.status(400).send('Harap pilih jenis surat terlebih dahulu.');
+    if (!penandatangan_id) return res.status(400).send('Harap pilih pejabat penandatangan.');
+
+    try {
+        const tplResults = await q("SELECT * FROM template_dokumen WHERE id_template = ?", [id_template]);
+        if (tplResults.length === 0) return res.status(404).send('Template surat tidak ditemukan.');
+        const template = tplResults[0];
+
+        let data_siswa = null;
+        if (template.kategori === 'siswa') {
+            if (!id_siswa) return res.status(400).send('Harap pilih siswa terlebih dahulu dari database.');
+            const siswaResults = await q("SELECT * FROM master_siswa WHERE id_siswa = ?", [id_siswa]);
+            if (siswaResults.length === 0) return res.status(404).send('Data siswa tidak ditemukan.');
+            data_siswa = siswaResults[0];
+        }
+
+        const penandatanganResults = await q("SELECT * FROM pejabat WHERE id_pejabat = ?", [penandatangan_id]);
+        if (penandatanganResults.length === 0) return res.status(404).send('Pejabat penandatangan tidak ditemukan.');
+        const pejabatTtd = penandatanganResults[0];
+
+        let pejabatMengetahui = null;
+        if (mengetahui_id) {
+            const mResults = await q("SELECT * FROM pejabat WHERE id_pejabat = ?", [mengetahui_id]);
+            if (mResults.length > 0) pejabatMengetahui = mResults[0];
+        }
+
+        // Hitung nomor urut surat keluar secara berurutan (satu nomor urut global untuk semua jenis surat)
+        const row = await q("SELECT IFNULL(MAX(nomor_urut), 0) + 1 AS nomor_baru FROM log_surat_keluar");
+        const nomorUrut = row[0].nomor_baru;
+        const sekarang = new Date();
+        const bulanRomawi = bulanKeRomawi(sekarang.getMonth() + 1);
+        const tahunSekarang = sekarang.getFullYear();
+        const nomorLengkap = `${nomorUrut}/${template.kode_perihal}/SMA-SW/${bulanRomawi}/${tahunSekarang}`;
+
+        // ENGINE AUTO-MERGE: gabungkan data siswa (jika ada) dengan variabel manual dari form, lalu format tanggal otomatis
+        const vars = { ...variabelManual };
+        if (data_siswa) {
+            vars.nama_siswa = data_siswa.nama_siswa;
+            vars.nisn = data_siswa.nisn;
+            vars.kelas = data_siswa.kelas;
+        }
+        const isiSurat = gantiVariabel(template.isi_template, vars);
+
+        const tanggalCetak = `${sekarang.getDate()} ${NAMA_BULAN[sekarang.getMonth()]} ${sekarang.getFullYear()}`;
+
+        // Susun badan surat sesuai format_surat template (keterangan / dinas / tugas)
+        let badanSurat = '';
+        if (template.format_surat === 'keterangan') {
+            badanSurat = `
+                <p>Yang bertanda tangan di bawah ini, Kepala Sekolah Menengah Atas (SMA) Swasta Jakarta Timur menerangkan dengan sesungguhnya bahwa:</p>
+                ${data_siswa ? `
+                <table style="margin-left: 40px; margin-bottom: 20px;">
+                    <tr><td style="width: 150px;">Nama Lengkap</td><td>: <strong>${data_siswa.nama_siswa}</strong></td></tr>
+                    <tr><td>NISN</td><td>: ${data_siswa.nisn}</td></tr>
+                    <tr><td>Fase / Kelas</td><td>: ${data_siswa.kelas}</td></tr>
+                </table>` : ''}
+                <p class="isi-surat">${isiSurat}</p>
+                <p>Demikian surat keterangan ini dibuat dengan sebenarnya agar dapat dipergunakan sebagaimana mestinya.</p>`;
+        } else if (template.format_surat === 'tugas') {
+            badanSurat = `
+                <p style="text-indent:0;">Yang bertanda tangan di bawah ini, Kepala Sekolah Menengah Atas (SMA) Swasta Jakarta Timur, dengan ini menugaskan:</p>
+                <p class="isi-surat" style="text-indent:0;">${isiSurat}</p>
+                <p>Demikian surat tugas ini dibuat untuk dilaksanakan dengan penuh tanggung jawab. Kepada yang bersangkutan diharapkan melapor kembali setelah tugas selesai dilaksanakan.</p>`;
+        } else {
+            const tujuan = kepada_yth || template.kepada_yth_default || '.....................';
+            badanSurat = `
+                <p style="margin-bottom: 20px;">Kepada Yth.<br><strong>${tujuan}</strong><br>di tempat</p>
+                <p style="text-indent:0;">Dengan hormat,</p>
+                <p class="isi-surat">${isiSurat}</p>
+                <p>Demikian surat ini kami sampaikan, atas perhatian dan kerja sama yang diberikan kami ucapkan terima kasih.</p>`;
+        }
+
+        // Blok tanda tangan: 1 kolom biasa, atau 2 kolom kalau ada "Yang Mengetahui"
+        let blokTandaTangan;
+        if (pejabatMengetahui) {
+            blokTandaTangan = `
+                <div style="display:flex; justify-content:space-between; margin-top:20px;">
+                    <div style="text-align:left; width:250px;">
+                        <p>Mengetahui,</p>
+                        <p>${pejabatMengetahui.jabatan},</p>
+                        <br><br><br><br>
+                        <p style="font-weight: bold; text-decoration: underline;">${pejabatMengetahui.nama}</p>
+                        <p>${pejabatMengetahui.nip ? 'NIP. ' + pejabatMengetahui.nip : ''}</p>
+                    </div>
+                    <div style="text-align:left; width:250px;">
+                        <p>Jakarta, ${tanggalCetak}</p>
+                        <p>${pejabatTtd.jabatan},</p>
+                        <br><br><br><br>
+                        <p style="font-weight: bold; text-decoration: underline;">${pejabatTtd.nama}</p>
+                        <p>${pejabatTtd.nip ? 'NIP. ' + pejabatTtd.nip : ''}</p>
+                    </div>
                 </div>`;
-            }).join('');
-
-            const romawi = ['I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII'];
-            const now = new Date();
-            previewNomor.textContent = `[No.Urut]/${template.kode_perihal}/SMA-SW/${romawi[now.getMonth()]}/${now.getFullYear()}`;
+        } else {
+            blokTandaTangan = `
+                <div class="tanda-tangan">
+                    <p>Jakarta, ${tanggalCetak}</p>
+                    <p>${pejabatTtd.jabatan},</p>
+                    <br><br><br><br>
+                    <p style="font-weight: bold; text-decoration: underline;">${pejabatTtd.nama}</p>
+                    <p>${pejabatTtd.nip ? 'NIP. ' + pejabatTtd.nip : ''}</p>
+                </div>`;
         }
 
-        function tutupDropdown() {
-            dropdownHasil.classList.add('hidden');
-            dropdownHasil.innerHTML = '';
+        // Blok tembusan (opsional), ditampilkan di bawah tanda tangan
+        let blokTembusan = '';
+        if (tembusan && tembusan.trim()) {
+            const daftarTembusan = tembusan.split('\n').map(t => t.trim()).filter(Boolean);
+            blokTembusan = `
+                <div style="clear:both; margin-top:40px; font-size:10pt;">
+                    <p style="margin-bottom:4px;">Tembusan:</p>
+                    <ol style="margin:0; padding-left:20px;">
+                        ${daftarTembusan.map(t => `<li>${t}</li>`).join('')}
+                    </ol>
+                </div>`;
         }
 
-        function pilihSiswa(siswa) {
-            idSiswaTerpilih = siswa.id_siswa;
-            inputCari.value = `${siswa.nama_siswa} (${siswa.nisn})`;
-            tutupDropdown();
-            notifBox.className = "bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-lg p-3 text-sm flex items-center justify-between";
-            textNotif.innerHTML = `Siswa Ditemukan: <span class="font-bold">${siswa.nisn} - ${siswa.nama_siswa}</span> (Kelas ${siswa.kelas})`;
-        }
+        // Baris Lampiran (opsional), ditampilkan di bawah Nomor
+        const barisLampiran = lampiran && lampiran.trim() ? `<p class="nomor-surat" style="margin-top:-20px;">Lampiran: ${lampiran}</p>` : '';
 
-        inputCari.addEventListener('input', function() {
-            idSiswaTerpilih = null;
-            const kataKunci = this.value;
+        // Simpan riwayat cetak surat ini ke dalam tabel Log Surat Keluar (Buku Agenda TU)
+        const penandatanganText = `${pejabatTtd.nama} (${pejabatTtd.jabatan})`;
+        await q(
+            "INSERT INTO log_surat_keluar (nomor_urut, nomor_lengkap, id_template, id_siswa, tujuan_surat, penandatangan, mengetahui, tembusan, lampiran, operator_tu) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Staf TU')",
+            [nomorUrut, nomorLengkap, id_template, id_siswa || null, kepada_yth || variabelManual.tujuan_surat || null, penandatanganText, pejabatMengetahui ? `${pejabatMengetahui.nama} (${pejabatMengetahui.jabatan})` : null, tembusan || null, lampiran || null]
+        );
 
-            if (kataKunci.length < 3) {
-                tutupDropdown();
-                notifBox.className = "bg-amber-50 border border-amber-200 text-amber-800 rounded-lg p-3 text-sm flex items-center justify-between";
-                textNotif.innerHTML = "Silakan ketik nama siswa di atas untuk memuat data identitas resmi.";
-                return;
-            }
+        // Mengeluarkan output halaman dokumen bersih berpola KOP resmi yang langsung memicu printer komputer.
+        // Badan surat dibuat contenteditable supaya staf TU bisa menyunting kalimat langsung sebelum cetak (fleksibilitas).
+        res.send(`
+            <!DOCTYPE html>
+            <html lang="id">
+            <head>
+                <title>Cetak - ${nomorLengkap.replace(/\//g, '_')}</title>
+                <style>
+                    body { font-family: "Times New Roman", Times, serif; padding: 40px; line-height: 1.6; font-size: 12pt; }
+                    .kop-surat { text-align: center; border-bottom: 3px double #000; padding-bottom: 10px; margin-bottom: 25px; }
+                    .kop-surat h1 { margin: 0; font-size: 16pt; font-weight: bold; }
+                    .kop-surat p { margin: 2px 0; font-size: 10pt; font-style: italic; }
+                    .judul-surat { text-align: center; font-weight: bold; text-decoration: underline; margin-bottom: 5px; font-size: 14pt; }
+                    .nomor-surat { text-align: center; margin-top: 0; margin-bottom: 10px; font-family: monospace; }
+                    .isi-surat { text-align: justify; text-indent: 40px; margin-bottom: 20px; }
+                    .tanda-tangan { float: right; text-align: left; width: 250px; margin-top: 20px; }
+                    .hint-edit { background:#eff6ff; border:1px solid #bfdbfe; color:#1e3a8a; font-size:10pt; font-family: Arial, sans-serif; padding:10px 14px; border-radius:6px; margin-bottom:20px; }
+                    .area-edit { outline: 1px dashed transparent; padding: 6px; border-radius: 4px; transition: outline-color .15s, background .15s; }
+                    .area-edit:hover, .area-edit:focus { outline-color: #93c5fd; background: #f8fafc; outline-style: dashed; }
+                    .tombol-aksi { position: fixed; bottom: 20px; right: 20px; background: #2563eb; color: white; padding: 12px 24px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+                    @media print { .tombol-aksi, .hint-edit { display: none; } .area-edit { outline: none !important; background: transparent !important; } }
+                </style>
+            </head>
+            <body>
+                <div class="kop-surat">
+                    <h1>SMA SWASTA JAKARTA TIMUR</h1>
+                    <p>Jl. Raya Pendidikan No. 12, Suku Dinas Pendidikan Wilayah II, Kota Jakarta Timur, DKI Jakarta</p>
+                </div>
+                <p class="judul-surat">${template.nama_surat.toUpperCase()}</p>
+                <p class="nomor-surat">Nomor: ${nomorLengkap}</p>
+                ${barisLampiran}
 
-            fetch(`/api/siswa/search?q=${encodeURIComponent(kataKunci)}`)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.length > 0) {
-                        dropdownHasil.innerHTML = data.map(siswa => `
-                            <button type="button"
-                                onclick='pilihSiswa(${JSON.stringify(siswa).replace(/'/g, "&#39;")})'
-                                class="w-full text-left px-3 py-2 hover:bg-blue-50 text-sm border-b border-gray-100 last:border-0">
-                                <span class="font-semibold text-slate-800">${siswa.nama_siswa}</span>
-                                <span class="text-gray-500"> — ${siswa.nisn} (Kelas ${siswa.kelas})</span>
-                            </button>
-                        `).join('');
-                        dropdownHasil.classList.remove('hidden');
-                        notifBox.className = "bg-blue-50 border border-blue-200 text-blue-800 rounded-lg p-3 text-sm flex items-center justify-between";
-                        textNotif.innerHTML = `Ditemukan ${data.length} siswa. Silakan pilih dari daftar di bawah kolom pencarian.`;
-                    } else {
-                        tutupDropdown();
-                        notifBox.className = "bg-rose-50 border border-rose-200 text-rose-800 rounded-lg p-3 text-sm flex items-center justify-between";
-                        textNotif.innerHTML = "Data tidak ditemukan. Silakan periksa kembali nama/NISN.";
-                    }
-                })
-                .catch(() => {
-                    tutupDropdown();
-                    notifBox.className = "bg-rose-50 border border-rose-200 text-rose-800 rounded-lg p-3 text-sm flex items-center justify-between";
-                    textNotif.innerHTML = "Gagal memuat data. Periksa koneksi ke server.";
-                });
-        });
+                <div class="hint-edit">💡 Ada kalimat yang perlu disesuaikan? Klik langsung pada teks surat di bawah ini untuk mengedit sebelum mencetak. Perubahan hanya berlaku di lembar ini, tidak mengubah template aslinya.</div>
 
-        document.addEventListener('click', function(e) {
-            if (!e.target.closest('#cariSiswa') && !e.target.closest('#dropdownHasil')) {
-                tutupDropdown();
-            }
-        });
+                <div class="area-edit" contenteditable="true">
+                    ${badanSurat}
+                </div>
 
-        function prosesCetak() {
-            const template = daftarTemplate.find(t => String(t.id_template) === selectJenisSurat.value);
-            if (!template) {
-                alert('Peringatan: Jenis surat belum termuat, silakan coba lagi.');
-                return;
-            }
-            if (template.kategori === 'siswa' && !idSiswaTerpilih) {
-                alert('Peringatan: Silakan cari dan pilih data siswa terlebih dahulu!');
-                return;
-            }
-            if (!selectPenandatangan.value) {
-                alert('Peringatan: Silakan pilih pejabat penandatangan!');
-                return;
-            }
+                ${blokTandaTangan}
+                ${blokTembusan}
 
-            const formBayangan = document.createElement('form');
-            formBayangan.method = 'POST';
-            formBayangan.action = '/api/surat/generate';
-            formBayangan.target = '_blank';
+                <button class="tombol-aksi" onclick="window.print()">🖨️ Cetak Surat ke Printer / Simpan PDF</button>
+            </body>
+            </html>
+        `);
+    } catch (err) {
+        res.status(500).send('Terjadi kesalahan: ' + err.message);
+    }
+});
 
-            function tambahInput(name, value) {
-                const hiddenInput = document.createElement('input');
-                hiddenInput.type = 'hidden';
-                hiddenInput.name = name;
-                hiddenInput.value = value ?? '';
-                formBayangan.appendChild(hiddenInput);
-            }
-
-            tambahInput('id_template', template.id_template);
-            tambahInput('penandatangan_id', selectPenandatangan.value);
-            if (selectMengetahui.value) tambahInput('mengetahui_id', selectMengetahui.value);
-            tambahInput('tembusan', document.getElementById('tembusan').value);
-            tambahInput('lampiran', document.getElementById('lampiran').value);
-            if (template.kategori === 'siswa') tambahInput('id_siswa', idSiswaTerpilih);
-            if (template.format_surat === 'dinas') tambahInput('kepada_yth', inputKepadaYth.value);
-
-            document.querySelectorAll('.input-variabel').forEach(el => {
-                tambahInput(`variabel[${el.dataset.var}]`, el.value);
-            });
-
-            document.body.appendChild(formBayangan);
-            formBayangan.submit();
-            document.body.removeChild(formBayangan);
-        }
-    </script>
-</body>
-</html>
+app.listen(PORT, '0.0.0.0', () => console.log(`Aplikasi berjalan lancar di port ${PORT}! (Lokal: http://localhost:${PORT})`));
