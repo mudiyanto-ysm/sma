@@ -120,6 +120,46 @@ app.delete('/api/siswa/:id', async (req, res) => {
     }
 });
 
+// Impor massal siswa dari Excel/CSV (hasil parsing dilakukan di browser, di sini hanya terima array JSON).
+// Berdasarkan NISN: kalau NISN sudah ada -> data diperbarui, kalau belum ada -> ditambah baru (upsert).
+app.post('/api/siswa/bulk-import', async (req, res) => {
+    const daftar = req.body.siswa || [];
+    if (!Array.isArray(daftar) || daftar.length === 0) return res.status(400).json({ error: 'Tidak ada data untuk diimpor.' });
+
+    let ditambah = 0, diperbarui = 0, gagal = 0;
+    const detailGagal = [];
+
+    for (let i = 0; i < daftar.length; i++) {
+        const row = daftar[i];
+        const nisn = String(row.nisn || '').trim();
+        const nama_siswa = String(row.nama_siswa || '').trim();
+        const kelas = String(row.kelas || '').trim();
+        const jurusan = row.jurusan ? String(row.jurusan).trim() : null;
+        const penerima_kjp = ['1', 1, true, 'true', 'ya', 'Ya', 'YA', 'y', 'Y'].includes(row.penerima_kjp) ? 1 : 0;
+
+        if (!nisn || !nama_siswa || !kelas) {
+            gagal++;
+            detailGagal.push(`Baris ${i + 2}: NISN, Nama, atau Kelas kosong`);
+            continue;
+        }
+        try {
+            const existing = await q("SELECT id_siswa FROM master_siswa WHERE nisn = ?", [nisn]);
+            if (existing.length > 0) {
+                await q("UPDATE master_siswa SET nama_siswa=?, kelas=?, jurusan=?, penerima_kjp=? WHERE nisn=?", [nama_siswa, kelas, jurusan, penerima_kjp, nisn]);
+                diperbarui++;
+            } else {
+                await q("INSERT INTO master_siswa (nisn, nama_siswa, kelas, jurusan, penerima_kjp) VALUES (?, ?, ?, ?, ?)", [nisn, nama_siswa, kelas, jurusan, penerima_kjp]);
+                ditambah++;
+            }
+        } catch (err) {
+            gagal++;
+            detailGagal.push(`Baris ${i + 2} (${nama_siswa}): ${err.message}`);
+        }
+    }
+
+    res.json({ ditambah, diperbarui, gagal, detailGagal });
+});
+
 // =====================================================
 // GURU — CRUD lengkap (dipakai halaman Data Guru), juga dipakai untuk auto-lengkapi Nama Petugas di Surat Tugas
 // =====================================================
@@ -253,6 +293,58 @@ app.delete('/api/template/:id', async (req, res) => {
         }
         res.status(500).json({ error: err.message });
     }
+});
+
+// Impor massal template surat dari Excel/CSV. Berdasarkan Nama Surat: kalau nama surat sudah ada -> diperbarui, kalau belum -> ditambah baru (upsert).
+app.post('/api/template/bulk-import', async (req, res) => {
+    const daftar = req.body.template || [];
+    if (!Array.isArray(daftar) || daftar.length === 0) return res.status(400).json({ error: 'Tidak ada data untuk diimpor.' });
+
+    const kategoriValid = ['siswa', 'umum'];
+    const formatValid = ['keterangan', 'dinas', 'tugas'];
+    let ditambah = 0, diperbarui = 0, gagal = 0;
+    const detailGagal = [];
+
+    for (let i = 0; i < daftar.length; i++) {
+        const row = daftar[i];
+        const kode_perihal = String(row.kode_perihal || '').trim();
+        const nama_surat = String(row.nama_surat || '').trim();
+        const kelompok = String(row.kelompok || '').trim();
+        const isi_template = String(row.isi_template || '').trim();
+        let kategori = String(row.kategori || 'umum').trim().toLowerCase();
+        let format_surat = String(row.format_surat || 'dinas').trim().toLowerCase();
+        const kepada_yth_default = row.kepada_yth_default ? String(row.kepada_yth_default).trim() : null;
+
+        if (!kategoriValid.includes(kategori)) kategori = 'umum';
+        if (!formatValid.includes(format_surat)) format_surat = 'dinas';
+
+        if (!kode_perihal || !nama_surat || !kelompok || !isi_template) {
+            gagal++;
+            detailGagal.push(`Baris ${i + 2}: Kode Perihal, Nama Surat, Kelompok, atau Isi Template kosong`);
+            continue;
+        }
+        try {
+            const existing = await q("SELECT id_template FROM template_dokumen WHERE nama_surat = ?", [nama_surat]);
+            if (existing.length > 0) {
+                await q(
+                    "UPDATE template_dokumen SET kode_perihal=?, kelompok=?, kategori=?, format_surat=?, kepada_yth_default=?, isi_template=? WHERE nama_surat=?",
+                    [kode_perihal, kelompok, kategori, format_surat, kepada_yth_default, isi_template, nama_surat]
+                );
+                diperbarui++;
+            } else {
+                await q(
+                    "INSERT INTO template_dokumen (kode_perihal, nama_surat, kelompok, kategori, format_surat, kepada_yth_default, isi_template) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    [kode_perihal, nama_surat, kelompok, kategori, format_surat, kepada_yth_default, isi_template]
+                );
+                ditambah++;
+            }
+        } catch (err) {
+            gagal++;
+            detailGagal.push(`Baris ${i + 2} (${nama_surat}): ${err.message}`);
+        }
+    }
+
+    res.json({ ditambah, diperbarui, gagal, detailGagal });
 });
 
 // =====================================================
